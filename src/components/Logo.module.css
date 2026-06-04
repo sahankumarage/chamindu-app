@@ -1,0 +1,62 @@
+.logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.65rem;
+    font-weight: 800;
+    font-size: 1.3rem;
+    letter-spacing: -0.03em;
+    color: var(--ink);
+}
+
+.mark {
+    position: relative;
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+    overflow: hidden;
+    display: grid;
+    place-items: center;
+    box-shadow: 0 6px 16px -6px rgba(236, 30, 121, 0.55);
+    flex-shrink: 0;
+}
+
+.mark i {
+    position: absolute;
+    width: 130%;
+    height: 130%;
+    border-radius: 50%;
+    opacity: 0.9;
+    mix-blend-mode: multiply;
+}
+
+.mark i:nth-child(1) {
+    top: -40%;
+    left: -30%;
+}
+
+.mark i:nth-child(2) {
+    bottom: -40%;
+    right: -25%;
+}
+
+.mark i:nth-child(3) {
+    bottom: -45%;
+    left: -25%;
+}
+
+.c {
+    position: relative;
+    z-index: 2;
+    color: white;
+    font-weight: 800;
+    font-size: 1.25rem;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+.word {
+    white-space: nowrap;
+}
+
+.light .word {
+    color: white;
+}

@@ -1,0 +1,132 @@
+.wrap {
+    max-width: 680px;
+}
+
+.back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--muted);
+    font-size: 0.9rem;
+    margin-bottom: 1.5rem;
+    transition: color 0.2s;
+}
+
+.back:hover {
+    color: var(--primary);
+}
+
+.title {
+    font-size: 1.9rem;
+}
+
+.sub {
+    color: var(--muted);
+    margin: 0.4rem 0 2rem;
+}
+
+.form {
+    display: grid;
+    gap: 1.3rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 2rem;
+    box-shadow: var(--shadow-sm);
+}
+
+.field {
+    display: grid;
+    gap: 0.5rem;
+}
+
+.field > span {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--ink-soft);
+}
+
+.field em {
+    color: var(--primary);
+    font-style: normal;
+}
+
+.field input[type='text'],
+.field textarea {
+    font-family: inherit;
+    font-size: 1rem;
+    color: var(--ink);
+    background: var(--surface-soft);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 0.85rem 1rem;
+    resize: vertical;
+}
+
+.field input[type='text']:focus,
+.field textarea:focus {
+    outline: none;
+    background: #fff;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(236, 30, 121, 0.12);
+}
+
+/* Dropzone */
+.dropzone {
+    position: relative;
+    display: block;
+    border: 2px dashed var(--border);
+    border-radius: 14px;
+    padding: 2rem;
+    text-align: center;
+    cursor: pointer;
+    background: var(--surface-soft);
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.dropzone:hover {
+    border-color: var(--primary);
+    background: #fff;
+}
+
+.dropzone input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.dzEmpty,
+.dzFile {
+    display: grid;
+    justify-items: center;
+    gap: 0.3rem;
+    color: var(--muted);
+    pointer-events: none;
+}
+
+.dzEmpty svg,
+.dzFile svg {
+    color: var(--primary);
+    margin-bottom: 0.3rem;
+}
+
+.dzEmpty strong,
+.dzFile strong {
+    color: var(--ink);
+    font-size: 1rem;
+}
+
+.dzEmpty small,
+.dzFile small {
+    font-size: 0.82rem;
+}
+
+.error {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #b91c1c;
+    padding: 0.8rem 1rem;
+    border-radius: 12px;
+    font-size: 0.92rem;
+}

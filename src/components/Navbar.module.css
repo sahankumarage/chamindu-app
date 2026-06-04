@@ -3,54 +3,199 @@
     top: 0;
     left: 0;
     right: 0;
-    z-index: 50;
-    padding: 1rem 1.5rem;
-    width: 100%;
+    z-index: 100;
+    transition: background 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+    border-bottom: 1px solid transparent;
+}
+
+.scrolled {
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 6px 24px -18px rgba(14, 14, 26, 0.4);
 }
 
 .inner {
-    max-width: 80rem;
-    /* 7xl */
+    max-width: 1180px;
     margin: 0 auto;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 1rem 1.5rem;
-}
-
-.navLinks {
+    padding: 0.85rem 1.5rem;
     display: flex;
     align-items: center;
     gap: 1.5rem;
 }
 
-.link {
-    position: relative;
-    font-size: 0.875rem;
-    font-weight: 500;
-    transition: color 0.2s;
-    color: #4b5563;
-    /* gray-600 */
+.desktop {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-left: auto;
 }
 
-.link:hover,
-.linkActive {
+.link,
+.active {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--ink-soft);
+    padding: 0.5rem 0.9rem;
+    border-radius: 999px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    transition: color 0.2s, background 0.2s;
+}
+
+.link:hover {
+    color: var(--primary);
+    background: rgba(236, 30, 121, 0.06);
+}
+
+.active {
+    color: var(--primary);
+    background: rgba(236, 30, 121, 0.09);
+    font-weight: 600;
+}
+
+/* Dropdown */
+.dropdown {
+    position: relative;
+}
+
+.menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 0.5rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: var(--shadow-md);
+    padding: 0.5rem;
+    min-width: 200px;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(8px);
+    transition: all 0.22s ease;
+}
+
+.dropdown:hover .menu {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.menuItem {
+    display: block;
+    padding: 0.65rem 0.9rem;
+    border-radius: 10px;
+    font-size: 0.95rem;
+    color: var(--ink-soft);
+    transition: background 0.2s, color 0.2s;
+}
+
+.menuItem:hover {
+    background: var(--surface-soft);
     color: var(--primary);
 }
 
-.logo {
-    font-size: 1.5rem;
-    /* 2xl */
-    font-weight: 700;
-    letter-spacing: -0.05em;
-    /* tracking-tighter */
+.actions {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
 }
 
-.underline {
+.cartBtn {
+    position: relative;
+    width: 42px;
+    height: 42px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    color: var(--ink-soft);
+    transition: background 0.2s, color 0.2s;
+}
+
+.cartBtn:hover {
+    background: var(--surface-soft);
+    color: var(--primary);
+}
+
+.badge {
     position: absolute;
-    bottom: -0.25rem;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background-color: var(--primary);
+    top: 2px;
+    right: 2px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    background: var(--grad-warm);
+    color: #fff;
+    font-size: 0.68rem;
+    font-weight: 700;
+}
+
+.signIn {
+    color: var(--ink) !important;
+}
+
+.cta {
+    padding: 0.6rem 1.2rem;
+    font-size: 0.9rem;
+}
+
+.burger {
+    display: none;
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: var(--ink);
+    cursor: pointer;
+}
+
+/* Mobile */
+.mobile {
+    display: none;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 1rem 1.5rem 1.5rem;
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border);
+}
+
+.mLink,
+.mActive {
+    padding: 0.8rem 1rem;
+    border-radius: 12px;
+    font-weight: 500;
+    color: var(--ink-soft);
+}
+
+.mActive {
+    background: rgba(236, 30, 121, 0.09);
+    color: var(--primary);
+    font-weight: 600;
+}
+
+@media (max-width: 860px) {
+
+    .desktop,
+    .actions {
+        display: none;
+    }
+
+    .burger {
+        display: inline-flex;
+        margin-left: auto;
+    }
+
+    .mobile {
+        display: flex;
+    }
 }

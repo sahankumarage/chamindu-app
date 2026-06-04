@@ -1,0 +1,97 @@
+.footer {
+    background: var(--key);
+    color: #b9b9c9;
+    margin-top: 5rem;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: 1.6fr 1fr 1fr 1.3fr;
+    gap: 2.5rem;
+    padding-top: 4.5rem;
+    padding-bottom: 3rem;
+}
+
+.brand p {
+    margin: 1.2rem 0 1.4rem;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    max-width: 34ch;
+}
+
+.social {
+    display: flex;
+    gap: 0.7rem;
+}
+
+.social a {
+    width: 40px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.07);
+    color: #fff;
+    transition: background 0.25s, transform 0.25s;
+}
+
+.social a:hover {
+    background: var(--grad-warm);
+    transform: translateY(-3px);
+}
+
+.col h4 {
+    color: #fff;
+    font-size: 1rem;
+    margin-bottom: 1.2rem;
+    letter-spacing: 0.02em;
+}
+
+.col a {
+    display: block;
+    font-size: 0.95rem;
+    margin-bottom: 0.75rem;
+    color: #b9b9c9;
+    transition: color 0.2s, transform 0.2s;
+}
+
+.col a:hover {
+    color: #fff;
+    transform: translateX(3px);
+}
+
+.contact {
+    display: flex !important;
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.contact svg {
+    color: var(--cyan);
+    flex-shrink: 0;
+}
+
+.bottom {
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 1.5rem 0;
+    font-size: 0.85rem;
+}
+
+.bottom > div {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+@media (max-width: 860px) {
+    .grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (max-width: 520px) {
+    .grid {
+        grid-template-columns: 1fr;
+    }
+}

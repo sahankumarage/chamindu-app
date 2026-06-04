@@ -1,55 +1,71 @@
 'use client';
 
-import { useState } from 'react';
-import { login, register } from '../actions';
-import { useRouter } from 'next/navigation';
-import styles from './page.module.css';
-import toast from 'react-hot-toast';
+import { useActionState, Suspense } from 'react';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { Printer, Check, LogIn } from 'lucide-react';
+import { loginAction, type FormState } from '@/lib/actions';
+import styles from '@/components/auth.module.css';
 
-export default function LoginPage() {
-    const [isLogin, setIsLogin] = useState(true);
-    const router = useRouter();
-
-    async function handleSubmit(formData: FormData) {
-        const action = isLogin ? login : register;
-        const res = await action(formData);
-
-        if (res.success) {
-            if (isLogin) {
-                toast.success('Welcome back!');
-                router.push('/admin');
-            } else {
-                toast.success('Account created! Please login.');
-                setIsLogin(true);
-            }
-        } else {
-            toast.error(res.message);
-        }
-    }
+function LoginForm() {
+    const params = useSearchParams();
+    const redirect = params.get('redirect') || '';
+    const [state, action, pending] = useActionState<FormState, FormData>(loginAction, undefined);
 
     return (
-        <main className={styles.page}>
-            <div className={styles.card}>
-                <h1 className={styles.title}>
-                    {isLogin ? 'Admin Login' : 'Admin Register'}
-                </h1>
+        <div className={styles.card}>
+            <h1>Welcome back</h1>
+            <p className={styles.sub}>Sign in to manage your orders, files and billing.</p>
 
-                <form action={handleSubmit} className={styles.form}>
-                    <input name="email" type="email" placeholder="Email" required className={styles.input} />
-                    <input name="password" type="password" placeholder="Password" required className={styles.input} />
+            <form action={action} className={styles.form}>
+                {redirect && <input type="hidden" name="redirect" value={redirect} />}
+                {state?.error && <div className={styles.error}>{state.error}</div>}
 
-                    <button type="submit" className="btn btn-primary w-full">
-                        {isLogin ? 'Login' : 'Register'}
-                    </button>
-                </form>
+                <label className={styles.field}>
+                    <span>Email</span>
+                    <input type="email" name="email" placeholder="you@email.com" required autoComplete="email" />
+                </label>
+                <label className={styles.field}>
+                    <span>Password</span>
+                    <input type="password" name="password" placeholder="••••••••" required autoComplete="current-password" />
+                </label>
 
-                <p className={styles.toggle}>
-                    {isLogin ? "Don't have an account? " : "Already have an account? "}
-                    <button onClick={() => setIsLogin(!isLogin)} className={styles.link}>
-                        {isLogin ? 'Register' : 'Login'}
-                    </button>
-                </p>
+                <button type="submit" className={`btn btn-primary ${styles.submit}`} disabled={pending}>
+                    {pending ? 'Signing in…' : <>Sign in <LogIn size={18} /></>}
+                </button>
+            </form>
+
+            <div className={styles.demo}>
+                Admin demo: <strong>admin@cprinting.com</strong> / <strong>admin123</strong>
             </div>
-        </main>
+
+            <p className={styles.alt}>
+                New to C Printing? <Link href="/signup">Create an account</Link>
+            </p>
+        </div>
+    );
+}
+
+export default function LoginPage() {
+    return (
+        <div className={styles.wrap}>
+            <aside className={styles.aside}>
+                <div className={styles.asideInner}>
+                    <Printer size={40} />
+                    <h2>Your projects, all in one place.</h2>
+                    <p>Track orders, upload print-ready files and pay invoices from your personal dashboard.</p>
+                    <ul className={styles.points}>
+                        <li><Check size={20} /> Place print &amp; store orders</li>
+                        <li><Check size={20} /> Upload PDFs securely</li>
+                        <li><Check size={20} /> View billing &amp; order status</li>
+                    </ul>
+                </div>
+            </aside>
+            <section className={styles.panel}>
+                <Suspense fallback={null}>
+                    <LoginForm />
+                </Suspense>
+            </section>
+        </div>
     );
 }
