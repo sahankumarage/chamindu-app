@@ -36,6 +36,8 @@ function LoginForm() {
             </form>
 
             <div className={styles.demo}>
+                Client demo: <strong>client@cprinting.com</strong> / <strong>client123</strong>
+                <br />
                 Admin demo: <strong>admin@cprinting.com</strong> / <strong>admin123</strong>
             </div>
 

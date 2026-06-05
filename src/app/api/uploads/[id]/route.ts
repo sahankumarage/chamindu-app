@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
-import { dbGet, type Order } from '@/lib/db';
-import { readPdf } from '@/lib/storage';
+import { findOrderById, getFile } from '@/lib/store';
 
 export async function GET(
     _req: Request,
@@ -13,9 +12,10 @@ export async function GET(
     }
 
     const { id } = await params;
-    const order = await dbGet<Order>('SELECT * FROM orders WHERE id = ?', [Number(id)]);
+    const orderId = Number(id);
+    const order = findOrderById(orderId);
 
-    if (!order || !order.file_path) {
+    if (!order || !order.file_name) {
         return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
 
@@ -24,14 +24,15 @@ export async function GET(
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const data = await readPdf(order.file_path);
-    if (!data) {
-        return NextResponse.json({ error: 'File missing' }, { status: 404 });
+    const stored = getFile(orderId);
+    if (!stored) {
+        // File metadata exists but the bytes aren't in memory (e.g. after a
+        // server restart in this no-database demo).
+        return NextResponse.json({ error: 'File no longer available (demo mode).' }, { status: 410 });
     }
 
-    const downloadName = (order.file_name || 'document.pdf').replace(/"/g, '');
-
-    return new NextResponse(new Uint8Array(data), {
+    const downloadName = stored.name.replace(/"/g, '');
+    return new NextResponse(new Uint8Array(stored.buffer), {
         headers: {
             'Content-Type': 'application/pdf',
             'Content-Disposition': `inline; filename="${downloadName}"`,

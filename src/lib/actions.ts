@@ -2,11 +2,18 @@
 
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
-import { dbGet, dbRun, type User } from './db';
-import { savePdf } from './storage';
 import {
-    hashPassword,
-    verifyPassword,
+    findUserByEmail,
+    createUser,
+    createOrder,
+    findOrderById,
+    updateOrderStatus,
+    setOrderAmount,
+    setOrderPaid,
+    storeFile,
+    type User,
+} from './store';
+import {
     createSession,
     destroySession,
     getSession,
@@ -28,15 +35,10 @@ export async function signupAction(_prev: FormState, formData: FormData): Promis
     if (!emailRe.test(email)) return { error: 'Please enter a valid email address.' };
     if (password.length < 6) return { error: 'Password must be at least 6 characters.' };
 
-    const exists = await dbGet('SELECT id FROM users WHERE email = ?', [email]);
-    if (exists) return { error: 'An account with this email already exists.' };
+    if (findUserByEmail(email)) return { error: 'An account with this email already exists.' };
 
-    const info = await dbRun(
-        'INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)',
-        [name, email, hashPassword(password), 'client']
-    );
-
-    await createSession({ id: info.lastInsertRowid, name, email, role: 'client' });
+    const user = createUser(name, email, password);
+    await createSession({ id: user.id, name: user.name, email: user.email, role: user.role });
     redirect('/portal');
 }
 
@@ -46,8 +48,8 @@ export async function loginAction(_prev: FormState, formData: FormData): Promise
 
     if (!email || !password) return { error: 'Email and password are required.' };
 
-    const user = await dbGet<User>('SELECT * FROM users WHERE email = ?', [email]);
-    if (!user || !verifyPassword(password, user.password)) {
+    const user = findUserByEmail(email);
+    if (!user || user.password !== password) {
         return { error: 'Invalid email or password.' };
     }
 
@@ -88,22 +90,29 @@ export async function createPrintOrder(_prev: FormState, formData: FormData): Pr
     if (!title) return { error: 'Please give your order a title.' };
 
     let fileName: string | null = null;
-    let storedRef: string | null = null;
+    let buffer: Buffer | null = null;
 
     if (file && file.size > 0) {
         if (file.type !== 'application/pdf') return { error: 'Only PDF files are accepted.' };
         if (file.size > 25 * 1024 * 1024) return { error: 'File is too large (max 25 MB).' };
-
-        const bytes = Buffer.from(await file.arrayBuffer());
-        storedRef = await savePdf(bytes, file.name);
+        buffer = Buffer.from(await file.arrayBuffer());
         fileName = file.name;
     }
 
-    await dbRun(
-        `INSERT INTO orders (user_id, kind, title, description, file_name, file_path, amount, status, payment_status)
-     VALUES (?, 'print', ?, ?, ?, ?, 0, 'pending', 'unpaid')`,
-        [user.id, title, description || null, fileName, storedRef]
-    );
+    const order = createOrder({
+        user_id: user.id,
+        kind: 'print',
+        title,
+        description: description || null,
+        items_json: null,
+        file_name: fileName,
+        file_path: fileName ? `mem:${fileName}` : null,
+        amount: 0,
+        status: 'pending',
+        payment_status: 'unpaid',
+    });
+
+    if (buffer && fileName) storeFile(order.id, fileName, buffer);
 
     revalidatePath('/portal/orders');
     redirect('/portal/orders');
@@ -129,16 +138,22 @@ export async function checkoutCart(
 
     const total = items.reduce((sum, i) => sum + Number(i.price) * Number(i.qty), 0);
     const count = items.reduce((n, i) => n + Number(i.qty), 0);
-    const title = `Store order — ${count} item${count === 1 ? '' : 's'}`;
 
-    const info = await dbRun(
-        `INSERT INTO orders (user_id, kind, title, items_json, amount, status, payment_status)
-       VALUES (?, 'store', ?, ?, ?, 'pending', 'unpaid')`,
-        [session.id, title, JSON.stringify(items), total]
-    );
+    const order = createOrder({
+        user_id: session.id,
+        kind: 'store',
+        title: `Store order — ${count} item${count === 1 ? '' : 's'}`,
+        description: null,
+        items_json: JSON.stringify(items),
+        file_name: null,
+        file_path: null,
+        amount: total,
+        status: 'pending',
+        payment_status: 'unpaid',
+    });
 
     revalidatePath('/portal/orders');
-    return { ok: true, orderId: info.lastInsertRowid };
+    return { ok: true, orderId: order.id };
 }
 
 // ---------------- Admin mutations ----------------
@@ -149,9 +164,7 @@ export async function adminUpdateStatus(formData: FormData): Promise<void> {
     await requireAdmin();
     const id = Number(formData.get('id'));
     const status = String(formData.get('status'));
-    if (id && VALID_STATUS.includes(status)) {
-        await dbRun('UPDATE orders SET status = ? WHERE id = ?', [status, id]);
-    }
+    if (id && VALID_STATUS.includes(status)) updateOrderStatus(id, status);
     revalidatePath('/admin/orders');
     revalidatePath('/admin');
 }
@@ -160,9 +173,7 @@ export async function adminSetAmount(formData: FormData): Promise<void> {
     await requireAdmin();
     const id = Number(formData.get('id'));
     const amount = Number(formData.get('amount'));
-    if (id && amount >= 0) {
-        await dbRun('UPDATE orders SET amount = ? WHERE id = ?', [amount, id]);
-    }
+    if (id && amount >= 0 && findOrderById(id)) setOrderAmount(id, amount);
     revalidatePath('/admin/billing');
     revalidatePath('/admin/orders');
 }
@@ -171,9 +182,7 @@ export async function adminTogglePaid(formData: FormData): Promise<void> {
     await requireAdmin();
     const id = Number(formData.get('id'));
     const paid = String(formData.get('paid')) === 'true';
-    if (id) {
-        await dbRun('UPDATE orders SET payment_status = ? WHERE id = ?', [paid ? 'paid' : 'unpaid', id]);
-    }
+    if (id) setOrderPaid(id, paid);
     revalidatePath('/admin/billing');
     revalidatePath('/admin');
 }

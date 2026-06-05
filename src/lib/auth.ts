@@ -1,7 +1,6 @@
 import { cookies } from 'next/headers';
 import { SignJWT, jwtVerify } from 'jose';
-import bcrypt from 'bcryptjs';
-import { dbGet, type User, type Role } from './db';
+import { findUserById, type User, type Role } from './store';
 
 const SECRET = new TextEncoder().encode(
     process.env.JWT_SECRET || 'c-printing-dev-secret-change-me'
@@ -15,14 +14,6 @@ export type SessionUser = {
     email: string;
     role: Role;
 };
-
-export function hashPassword(pw: string): string {
-    return bcrypt.hashSync(pw, 10);
-}
-
-export function verifyPassword(pw: string, hash: string): boolean {
-    return bcrypt.compareSync(pw, hash);
-}
 
 export async function createSession(user: SessionUser): Promise<void> {
     const token = await new SignJWT({ ...user })
@@ -67,6 +58,5 @@ export async function getSession(): Promise<SessionUser | null> {
 export async function getCurrentUser(): Promise<User | null> {
     const session = await getSession();
     if (!session) return null;
-    const user = await dbGet<User>('SELECT * FROM users WHERE id = ?', [session.id]);
-    return user ?? null;
+    return findUserById(session.id) ?? null;
 }

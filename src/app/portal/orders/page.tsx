@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Package, Plus, FileText, Download } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
-import { dbAll, type Order } from '@/lib/db';
+import { listOrdersByUser } from '@/lib/store';
 import { money, formatDate } from '@/lib/format';
 import { StatusBadge, PaymentBadge } from '@/components/StatusBadge';
 import styles from '@/components/dashboard.module.css';
@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function PortalOrders() {
     const user = (await getCurrentUser())!;
-    const orders = await dbAll<Order>('SELECT * FROM orders WHERE user_id = ? ORDER BY id DESC', [user.id]);
+    const orders = listOrdersByUser(user.id);
 
     return (
         <>

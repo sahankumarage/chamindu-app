@@ -1,33 +1,12 @@
 import { Users, Mail } from 'lucide-react';
-import { dbAll } from '@/lib/db';
+import { listClients } from '@/lib/store';
 import { money, formatDate } from '@/lib/format';
 import styles from '@/components/dashboard.module.css';
 
 export const dynamic = 'force-dynamic';
 
-type ClientRow = {
-    id: number;
-    name: string;
-    email: string;
-    created_at: string;
-    order_count: number;
-    total_spent: number;
-    outstanding: number;
-};
-
 export default async function AdminClients() {
-    const clients = await dbAll<ClientRow>(`
-      SELECT
-        u.id, u.name, u.email, u.created_at,
-        COUNT(o.id) AS order_count,
-        COALESCE(SUM(CASE WHEN o.payment_status = 'paid' THEN o.amount ELSE 0 END), 0) AS total_spent,
-        COALESCE(SUM(CASE WHEN o.payment_status = 'unpaid' THEN o.amount ELSE 0 END), 0) AS outstanding
-      FROM users u
-      LEFT JOIN orders o ON o.user_id = u.id
-      WHERE u.role = 'client'
-      GROUP BY u.id
-      ORDER BY u.id DESC
-    `);
+    const clients = listClients();
 
     return (
         <>

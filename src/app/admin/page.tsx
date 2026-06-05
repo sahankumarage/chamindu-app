@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Package, Users, DollarSign, Clock, ArrowRight } from 'lucide-react';
-import { dbGet, dbAll, type OrderWithUser } from '@/lib/db';
+import { listAllOrders, listClients } from '@/lib/store';
 import { money, formatDate } from '@/lib/format';
 import { StatusBadge, PaymentBadge } from '@/components/StatusBadge';
 import styles from '@/components/dashboard.module.css';
@@ -8,17 +8,14 @@ import styles from '@/components/dashboard.module.css';
 export const dynamic = 'force-dynamic';
 
 export default async function AdminOverview() {
-    const totalOrders = (await dbGet<{ c: number }>('SELECT COUNT(*) AS c FROM orders'))!.c;
-    const clients = (await dbGet<{ c: number }>("SELECT COUNT(*) AS c FROM users WHERE role = 'client'"))!.c;
-    const pending = (await dbGet<{ c: number }>("SELECT COUNT(*) AS c FROM orders WHERE status = 'pending'"))!.c;
-    const revenue = (await dbGet<{ s: number }>("SELECT COALESCE(SUM(amount),0) AS s FROM orders WHERE payment_status = 'paid'"))!.s;
-    const due = (await dbGet<{ s: number }>("SELECT COALESCE(SUM(amount),0) AS s FROM orders WHERE payment_status = 'unpaid'"))!.s;
+    const allOrders = listAllOrders();
+    const totalOrders = allOrders.length;
+    const clients = listClients().length;
+    const pending = allOrders.filter((o) => o.status === 'pending').length;
+    const revenue = allOrders.filter((o) => o.payment_status === 'paid').reduce((s, o) => s + o.amount, 0);
+    const due = allOrders.filter((o) => o.payment_status === 'unpaid').reduce((s, o) => s + o.amount, 0);
 
-    const recent = await dbAll<OrderWithUser>(`
-      SELECT o.*, u.name AS user_name, u.email AS user_email
-      FROM orders o JOIN users u ON u.id = o.user_id
-      ORDER BY o.id DESC LIMIT 8
-    `);
+    const recent = allOrders.slice(0, 8);
 
     const stats = [
         { icon: Package, value: String(totalOrders), label: 'Total orders', grad: 'linear-gradient(135deg,#06b6d4,#3b82f6)' },
