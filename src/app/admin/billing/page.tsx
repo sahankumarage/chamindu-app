@@ -1,5 +1,5 @@
 import { Receipt, DollarSign, Wallet, CheckCircle2 } from 'lucide-react';
-import { db, type OrderWithUser } from '@/lib/db';
+import { dbGet, dbAll, type OrderWithUser } from '@/lib/db';
 import { money, formatDate } from '@/lib/format';
 import { PaymentBadge } from '@/components/StatusBadge';
 import { adminSetAmount, adminTogglePaid } from '@/lib/actions';
@@ -7,17 +7,15 @@ import styles from '@/components/dashboard.module.css';
 
 export const dynamic = 'force-dynamic';
 
-export default function AdminBilling() {
-    const orders = db
-        .prepare(`
+export default async function AdminBilling() {
+    const orders = await dbAll<OrderWithUser>(`
       SELECT o.*, u.name AS user_name, u.email AS user_email
       FROM orders o JOIN users u ON u.id = o.user_id
       ORDER BY o.id DESC
-    `)
-        .all() as OrderWithUser[];
+    `);
 
-    const revenue = (db.prepare("SELECT COALESCE(SUM(amount),0) AS s FROM orders WHERE payment_status='paid'").get() as { s: number }).s;
-    const due = (db.prepare("SELECT COALESCE(SUM(amount),0) AS s FROM orders WHERE payment_status='unpaid'").get() as { s: number }).s;
+    const revenue = (await dbGet<{ s: number }>("SELECT COALESCE(SUM(amount),0) AS s FROM orders WHERE payment_status='paid'"))!.s;
+    const due = (await dbGet<{ s: number }>("SELECT COALESCE(SUM(amount),0) AS s FROM orders WHERE payment_status='unpaid'"))!.s;
     const unpaidCount = orders.filter((o) => o.payment_status === 'unpaid' && o.amount > 0).length;
 
     return (

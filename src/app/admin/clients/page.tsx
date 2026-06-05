@@ -1,5 +1,5 @@
 import { Users, Mail } from 'lucide-react';
-import { db } from '@/lib/db';
+import { dbAll } from '@/lib/db';
 import { money, formatDate } from '@/lib/format';
 import styles from '@/components/dashboard.module.css';
 
@@ -15,9 +15,8 @@ type ClientRow = {
     outstanding: number;
 };
 
-export default function AdminClients() {
-    const clients = db
-        .prepare(`
+export default async function AdminClients() {
+    const clients = await dbAll<ClientRow>(`
       SELECT
         u.id, u.name, u.email, u.created_at,
         COUNT(o.id) AS order_count,
@@ -28,8 +27,7 @@ export default function AdminClients() {
       WHERE u.role = 'client'
       GROUP BY u.id
       ORDER BY u.id DESC
-    `)
-        .all() as ClientRow[];
+    `);
 
     return (
         <>

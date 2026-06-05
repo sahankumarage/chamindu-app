@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Package, Factory, Wallet, CheckCircle2, Plus, ShoppingBag, ArrowRight } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
-import { db, type Order } from '@/lib/db';
+import { dbAll, type Order } from '@/lib/db';
 import { money, formatDate } from '@/lib/format';
 import { StatusBadge, PaymentBadge } from '@/components/StatusBadge';
 import styles from '@/components/dashboard.module.css';
@@ -10,9 +10,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function PortalDashboard() {
     const user = (await getCurrentUser())!;
-    const orders = db
-        .prepare('SELECT * FROM orders WHERE user_id = ? ORDER BY id DESC')
-        .all(user.id) as Order[];
+    const orders = await dbAll<Order>('SELECT * FROM orders WHERE user_id = ? ORDER BY id DESC', [user.id]);
 
     const inProduction = orders.filter((o) => o.status === 'in_production').length;
     const completed = orders.filter((o) => o.status === 'completed').length;

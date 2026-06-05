@@ -6,6 +6,8 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.join(__dirname),
   },
+  // libSQL ships platform binaries — keep it out of the bundle.
+  serverExternalPackages: ["@libsql/client"],
 };
 
 export default nextConfig;

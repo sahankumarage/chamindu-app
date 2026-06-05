@@ -1,6 +1,6 @@
 import { Receipt, Wallet, CheckCircle2 } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
-import { db, type Order } from '@/lib/db';
+import { dbAll, type Order } from '@/lib/db';
 import { money, formatDate } from '@/lib/format';
 import { PaymentBadge } from '@/components/StatusBadge';
 import styles from '@/components/dashboard.module.css';
@@ -9,9 +9,10 @@ export const dynamic = 'force-dynamic';
 
 export default async function PortalBilling() {
     const user = (await getCurrentUser())!;
-    const invoices = db
-        .prepare('SELECT * FROM orders WHERE user_id = ? AND amount > 0 ORDER BY id DESC')
-        .all(user.id) as Order[];
+    const invoices = await dbAll<Order>(
+        'SELECT * FROM orders WHERE user_id = ? AND amount > 0 ORDER BY id DESC',
+        [user.id]
+    );
 
     const due = invoices.filter((o) => o.payment_status === 'unpaid').reduce((s, o) => s + o.amount, 0);
     const paid = invoices.filter((o) => o.payment_status === 'paid').reduce((s, o) => s + o.amount, 0);

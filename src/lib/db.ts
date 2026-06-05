@@ -1,26 +1,37 @@
-import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs';
 import path from 'node:path';
+import { createClient, type Client, type InValue } from '@libsql/client';
 import bcrypt from 'bcryptjs';
 
-// Data lives in <project>/data — db file + uploaded PDFs.
-const DATA_DIR = path.join(process.cwd(), 'data');
-export const UPLOAD_DIR = path.join(DATA_DIR, 'uploads');
+/**
+ * Database layer backed by libSQL (Turso).
+ * - In production set TURSO_DATABASE_URL (libsql://...) + TURSO_AUTH_TOKEN.
+ * - With no env vars it falls back to a local file (file:./data/app.db) for dev.
+ */
+const url = process.env.TURSO_DATABASE_URL || 'file:./data/app.db';
+const authToken = process.env.TURSO_AUTH_TOKEN;
 
-function ensureDirs() {
-    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-    if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+const globalForDb = globalThis as unknown as {
+    __client?: Client;
+    __ready?: Promise<void>;
+};
+
+function client(): Client {
+    if (!globalForDb.__client) {
+        // For a local file URL the parent directory must exist first.
+        if (url.startsWith('file:')) {
+            const dir = path.dirname(url.slice('file:'.length));
+            if (dir && !fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        }
+        globalForDb.__client = createClient({ url, authToken });
+    }
+    return globalForDb.__client;
 }
 
-// Cache the connection across hot reloads in dev.
-const globalForDb = globalThis as unknown as { __cprintingDb?: DatabaseSync };
+async function init(): Promise<void> {
+    const c = client();
 
-function init(): DatabaseSync {
-    ensureDirs();
-    const db = new DatabaseSync(path.join(DATA_DIR, 'app.db'));
-    db.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
-
-    db.exec(`
+    await c.executeMultiple(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
@@ -29,77 +40,90 @@ function init(): DatabaseSync {
       role TEXT NOT NULL DEFAULT 'client',
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
-
     CREATE TABLE IF NOT EXISTS orders (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
-      kind TEXT NOT NULL,                 -- 'print' | 'store'
+      kind TEXT NOT NULL,
       title TEXT NOT NULL,
       description TEXT,
-      items_json TEXT,                    -- JSON cart items for store orders
-      file_name TEXT,                     -- original uploaded file name
-      file_path TEXT,                     -- stored file name on disk
+      items_json TEXT,
+      file_name TEXT,
+      file_path TEXT,
       amount REAL NOT NULL DEFAULT 0,
-      status TEXT NOT NULL DEFAULT 'pending',          -- pending|in_production|ready|completed|cancelled
-      payment_status TEXT NOT NULL DEFAULT 'unpaid',   -- unpaid|paid
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      status TEXT NOT NULL DEFAULT 'pending',
+      payment_status TEXT NOT NULL DEFAULT 'unpaid',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
 
-    // Seed default accounts once. INSERT OR IGNORE is race-safe across the
-    // parallel workers Next.js spawns during build (email is UNIQUE).
+    // Seed default accounts (idempotent).
     const seeds: Array<[string, string, string, 'admin' | 'client']> = [
         ['C Printing Admin', 'admin@cprinting.com', 'admin123', 'admin'],
         ['Demo Client', 'client@cprinting.com', 'client123', 'client'],
     ];
-    try {
-        for (const [name, email, pw, role] of seeds) {
-            const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
-            if (!existing) {
-                db.prepare(
-                    'INSERT OR IGNORE INTO users (name, email, password, role) VALUES (?, ?, ?, ?)'
-                ).run(name, email, bcrypt.hashSync(pw, 10), role);
-            }
-        }
-    } catch {
-        // Another worker seeded concurrently — safe to ignore.
+    for (const [name, email, pw, role] of seeds) {
+        await c.execute({
+            sql: 'INSERT OR IGNORE INTO users (name, email, password, role) VALUES (?, ?, ?, ?)',
+            args: [name, email, bcrypt.hashSync(pw, 10), role],
+        });
     }
 
-    // Seed a few demo orders for the demo client so the dashboards aren't empty.
-    try {
-        const demo = db.prepare("SELECT id FROM users WHERE email = 'client@cprinting.com'").get() as
-            | { id: number }
-            | undefined;
-        if (demo) {
-            const count = (db.prepare('SELECT COUNT(*) AS c FROM orders WHERE user_id = ?').get(demo.id) as { c: number }).c;
-            if (count === 0) {
-                const ins = db.prepare(
-                    `INSERT INTO orders (user_id, kind, title, description, items_json, amount, status, payment_status)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-                );
-                ins.run(demo.id, 'print', '500 Matte Business Cards', 'Double-sided, 350gsm matte, full color.', null, 45, 'completed', 'paid');
-                ins.run(demo.id, 'print', 'A2 Event Posters ×20', 'Gloss finish, vivid color, rush turnaround.', null, 120, 'in_production', 'unpaid');
-                ins.run(
-                    demo.id, 'store', 'Store order — 3 items', null,
-                    JSON.stringify([
-                        { name: 'Premium Matte Cardstock', price: 18, qty: 2 },
-                        { name: 'CMYK Ink Cartridge Set', price: 64, qty: 1 },
-                    ]),
-                    100, 'ready', 'unpaid'
-                );
-                ins.run(demo.id, 'print', 'Roll-up Banner 850×2000mm', 'Retractable stand included. Awaiting quote.', null, 0, 'pending', 'unpaid');
+    // Seed demo orders for the demo client so dashboards aren't empty.
+    const demo = await c.execute({ sql: "SELECT id FROM users WHERE email = 'client@cprinting.com'", args: [] });
+    const demoId = demo.rows[0]?.id as number | undefined;
+    if (demoId != null) {
+        const existing = await c.execute({ sql: 'SELECT COUNT(*) AS c FROM orders WHERE user_id = ?', args: [demoId] });
+        if (Number(existing.rows[0]?.c ?? 0) === 0) {
+            const rows: Array<[string, string, string | null, string | null, number, string, string]> = [
+                ['print', '500 Matte Business Cards', 'Double-sided, 350gsm matte, full color.', null, 45, 'completed', 'paid'],
+                ['print', 'A2 Event Posters ×20', 'Gloss finish, vivid color, rush turnaround.', null, 120, 'in_production', 'unpaid'],
+                ['store', 'Store order — 3 items', null, JSON.stringify([
+                    { name: 'Premium Matte Cardstock', price: 18, qty: 2 },
+                    { name: 'CMYK Ink Cartridge Set', price: 64, qty: 1 },
+                ]), 100, 'ready', 'unpaid'],
+                ['print', 'Roll-up Banner 850×2000mm', 'Retractable stand included. Awaiting quote.', null, 0, 'pending', 'unpaid'],
+            ];
+            for (const [kind, title, description, items, amount, status, payment] of rows) {
+                await c.execute({
+                    sql: `INSERT INTO orders (user_id, kind, title, description, items_json, amount, status, payment_status)
+                          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                    args: [demoId, kind, title, description, items, amount, status, payment],
+                });
             }
         }
-    } catch {
-        // Non-fatal — demo data is best-effort.
     }
-
-    return db;
 }
 
-export const db: DatabaseSync = globalForDb.__cprintingDb ?? init();
-if (process.env.NODE_ENV !== 'production') globalForDb.__cprintingDb = db;
+function ensure(): Promise<void> {
+    if (!globalForDb.__ready) globalForDb.__ready = init();
+    return globalForDb.__ready;
+}
+
+// ---- Query helpers ----
+type Args = InValue[];
+
+export async function dbAll<T>(sql: string, args: Args = []): Promise<T[]> {
+    await ensure();
+    const rs = await client().execute({ sql, args });
+    return rs.rows as unknown as T[];
+}
+
+export async function dbGet<T>(sql: string, args: Args = []): Promise<T | undefined> {
+    const rows = await dbAll<T>(sql, args);
+    return rows[0];
+}
+
+export async function dbRun(
+    sql: string,
+    args: Args = []
+): Promise<{ lastInsertRowid: number; rowsAffected: number }> {
+    await ensure();
+    const rs = await client().execute({ sql, args });
+    return {
+        lastInsertRowid: rs.lastInsertRowid != null ? Number(rs.lastInsertRowid) : 0,
+        rowsAffected: rs.rowsAffected,
+    };
+}
 
 // ---- Types ----
 export type Role = 'client' | 'admin';

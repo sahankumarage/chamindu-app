@@ -1,5 +1,5 @@
 import { Package, FileText, Download, Mail } from 'lucide-react';
-import { db, type OrderWithUser } from '@/lib/db';
+import { dbAll, type OrderWithUser } from '@/lib/db';
 import { money, formatDate, STATUS_OPTIONS, STATUS_META } from '@/lib/format';
 import { StatusBadge, PaymentBadge } from '@/components/StatusBadge';
 import { adminUpdateStatus } from '@/lib/actions';
@@ -9,14 +9,12 @@ type CartItem = { name: string; price: number; qty: number };
 
 export const dynamic = 'force-dynamic';
 
-export default function AdminOrders() {
-    const orders = db
-        .prepare(`
+export default async function AdminOrders() {
+    const orders = await dbAll<OrderWithUser>(`
       SELECT o.*, u.name AS user_name, u.email AS user_email
       FROM orders o JOIN users u ON u.id = o.user_id
       ORDER BY o.id DESC
-    `)
-        .all() as OrderWithUser[];
+    `);
 
     return (
         <>

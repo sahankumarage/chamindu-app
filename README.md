@@ -46,15 +46,36 @@ Clients self-register at `/signup`. **Change the admin password and set `JWT_SEC
 ## How it works
 
 - **Auth** — bcrypt-hashed passwords + JWT sessions in an httpOnly cookie (`jose`). Route protection via `src/middleware.ts`.
-- **Database** — Node's built-in `node:sqlite` (no install, no external service). DB file + uploaded PDFs live in `/data` (git-ignored), created automatically.
-- **Uploads** — PDFs saved to `data/uploads/`, served only to the owner or an admin via `/api/uploads/[id]`.
+- **Database** — [Turso](https://turso.tech) (libSQL / cloud SQLite) via `@libsql/client`. Locally it falls back to a `file:./data/app.db` SQLite file when no Turso env vars are set, so you can develop with zero setup.
+- **Uploads** — PDFs go to [Vercel Blob](https://vercel.com/storage/blob) in production (local `data/uploads/` in dev). Files are served only to the owner or an admin via `/api/uploads/[id]`.
 - **Checkout** — mock invoicing: store orders are placed as "unpaid" and the admin sets amounts / records payment.
 
 ## Environment variables
 
-| Var | Purpose | Default (dev only) |
+See [`.env.example`](.env.example). For local dev you can leave the Turso/Blob vars empty (it uses a local file + local uploads).
+
+| Var | Purpose | Required in prod? |
 | --- | --- | --- |
-| `JWT_SECRET` | Signs session tokens | a dev fallback — **override in production** |
+| `JWT_SECRET` | Signs session tokens | ✅ yes |
+| `TURSO_DATABASE_URL` | libSQL database URL | ✅ yes |
+| `TURSO_AUTH_TOKEN` | libSQL auth token | ✅ yes |
+| `BLOB_READ_WRITE_TOKEN` | Vercel Blob (PDF storage) | ✅ for uploads (auto-set by Vercel) |
+
+## Deploying to Vercel
+
+The portal/admin need a cloud database and file storage because Vercel's filesystem is read-only. One-time setup:
+
+1. **Create a Turso database** (free):
+   ```bash
+   # install CLI: https://docs.turso.tech/cli/installation
+   turso db create c-printing
+   turso db show c-printing --url        # -> TURSO_DATABASE_URL
+   turso db tokens create c-printing     # -> TURSO_AUTH_TOKEN
+   ```
+2. **Add Vercel Blob storage:** Vercel dashboard → your project → **Storage** → **Create** → **Blob** → connect it. This auto-adds `BLOB_READ_WRITE_TOKEN`.
+3. **Set env vars** in Vercel → Settings → Environment Variables:
+   `JWT_SECRET`, `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN` (Blob token is added for you).
+4. **Redeploy.** Tables and the default accounts are created automatically on first run.
 
 ## Getting started
 
@@ -88,7 +109,8 @@ src/
     DashboardShell.tsx  # sidebar shell shared by portal + admin
     StatusBadge.tsx     # order/payment status badges
   lib/
-    db.ts               # node:sqlite connection, schema, admin seed
+    db.ts               # libSQL (Turso) connection, schema, seeds, query helpers
+    storage.ts          # PDF storage (Vercel Blob in prod, local fs in dev)
     auth.ts             # password hashing + JWT sessions
     actions.ts          # server actions (auth, orders, billing)
     format.ts           # money/date/status helpers

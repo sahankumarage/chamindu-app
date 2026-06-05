@@ -1,26 +1,24 @@
 import Link from 'next/link';
 import { Package, Users, DollarSign, Clock, ArrowRight } from 'lucide-react';
-import { db, type OrderWithUser } from '@/lib/db';
+import { dbGet, dbAll, type OrderWithUser } from '@/lib/db';
 import { money, formatDate } from '@/lib/format';
 import { StatusBadge, PaymentBadge } from '@/components/StatusBadge';
 import styles from '@/components/dashboard.module.css';
 
 export const dynamic = 'force-dynamic';
 
-export default function AdminOverview() {
-    const totalOrders = (db.prepare('SELECT COUNT(*) AS c FROM orders').get() as { c: number }).c;
-    const clients = (db.prepare("SELECT COUNT(*) AS c FROM users WHERE role = 'client'").get() as { c: number }).c;
-    const pending = (db.prepare("SELECT COUNT(*) AS c FROM orders WHERE status = 'pending'").get() as { c: number }).c;
-    const revenue = (db.prepare("SELECT COALESCE(SUM(amount),0) AS s FROM orders WHERE payment_status = 'paid'").get() as { s: number }).s;
-    const due = (db.prepare("SELECT COALESCE(SUM(amount),0) AS s FROM orders WHERE payment_status = 'unpaid'").get() as { s: number }).s;
+export default async function AdminOverview() {
+    const totalOrders = (await dbGet<{ c: number }>('SELECT COUNT(*) AS c FROM orders'))!.c;
+    const clients = (await dbGet<{ c: number }>("SELECT COUNT(*) AS c FROM users WHERE role = 'client'"))!.c;
+    const pending = (await dbGet<{ c: number }>("SELECT COUNT(*) AS c FROM orders WHERE status = 'pending'"))!.c;
+    const revenue = (await dbGet<{ s: number }>("SELECT COALESCE(SUM(amount),0) AS s FROM orders WHERE payment_status = 'paid'"))!.s;
+    const due = (await dbGet<{ s: number }>("SELECT COALESCE(SUM(amount),0) AS s FROM orders WHERE payment_status = 'unpaid'"))!.s;
 
-    const recent = db
-        .prepare(`
+    const recent = await dbAll<OrderWithUser>(`
       SELECT o.*, u.name AS user_name, u.email AS user_email
       FROM orders o JOIN users u ON u.id = o.user_id
       ORDER BY o.id DESC LIMIT 8
-    `)
-        .all() as OrderWithUser[];
+    `);
 
     const stats = [
         { icon: Package, value: String(totalOrders), label: 'Total orders', grad: 'linear-gradient(135deg,#06b6d4,#3b82f6)' },

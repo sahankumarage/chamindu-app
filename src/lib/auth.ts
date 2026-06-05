@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { SignJWT, jwtVerify } from 'jose';
 import bcrypt from 'bcryptjs';
-import { db, type User, type Role } from './db';
+import { dbGet, type User, type Role } from './db';
 
 const SECRET = new TextEncoder().encode(
     process.env.JWT_SECRET || 'c-printing-dev-secret-change-me'
@@ -67,8 +67,6 @@ export async function getSession(): Promise<SessionUser | null> {
 export async function getCurrentUser(): Promise<User | null> {
     const session = await getSession();
     if (!session) return null;
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(session.id) as
-        | User
-        | undefined;
+    const user = await dbGet<User>('SELECT * FROM users WHERE id = ?', [session.id]);
     return user ?? null;
 }

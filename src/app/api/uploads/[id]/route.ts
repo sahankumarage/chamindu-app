@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
-import fs from 'node:fs';
-import path from 'node:path';
 import { getSession } from '@/lib/auth';
-import { db, UPLOAD_DIR, type Order } from '@/lib/db';
+import { dbGet, type Order } from '@/lib/db';
+import { readPdf } from '@/lib/storage';
 
 export async function GET(
     _req: Request,
@@ -14,9 +13,7 @@ export async function GET(
     }
 
     const { id } = await params;
-    const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(Number(id)) as
-        | Order
-        | undefined;
+    const order = await dbGet<Order>('SELECT * FROM orders WHERE id = ?', [Number(id)]);
 
     if (!order || !order.file_path) {
         return NextResponse.json({ error: 'Not found' }, { status: 404 });
@@ -27,14 +24,11 @@ export async function GET(
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Guard against path traversal — only allow the stored basename.
-    const safeName = path.basename(order.file_path);
-    const filePath = path.join(UPLOAD_DIR, safeName);
-    if (!filePath.startsWith(UPLOAD_DIR) || !fs.existsSync(filePath)) {
+    const data = await readPdf(order.file_path);
+    if (!data) {
         return NextResponse.json({ error: 'File missing' }, { status: 404 });
     }
 
-    const data = fs.readFileSync(filePath);
     const downloadName = (order.file_name || 'document.pdf').replace(/"/g, '');
 
     return new NextResponse(new Uint8Array(data), {
